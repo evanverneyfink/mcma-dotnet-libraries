@@ -4,9 +4,13 @@ using Mcma.Api;
 
 namespace Mcma.Aws.Api
 {
-    public class ApiGatewayRequest : McmaApiRequest, IStageVariableProvider
+    public class ApiGatewayRequestContext : McmaApiRequestContext, IStageVariableProvider
     {
+        public ApiGatewayRequestContext(McmaApiRequest request, IDictionary<string, string> contextVariables)
+            : base(request, contextVariables)
+        {
+        }
 
-        public IDictionary<string, string> StageVariables { get; set; }
+        public IDictionary<string, string> StageVariables => ContextVariables;
     }
 }
