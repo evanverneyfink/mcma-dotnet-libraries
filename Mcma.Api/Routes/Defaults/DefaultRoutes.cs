@@ -6,26 +6,29 @@ using Mcma.Core.Utility;
 
 namespace Mcma.Api.Routes.Defaults
 {
-    public class DefaultRoutes
+    public static class DefaultRoutes
     {
         public static DefaultRouteCollectionBuilder<T> Builder<T>(IDbTableProvider<T> dbTableProvider, string root = null) where T : McmaResource
             => new DefaultRouteCollectionBuilder<T>(dbTableProvider, root ?? typeof(T).Name.CamelCaseToKebabCase());
+            
 
-        public static McmaApiRouteCollection ForJobAssignments(IDbTableProvider<JobAssignment> dbTableProvider, IWorkerInvoker workerInvoker)
-        {
-            var defaultRoutesBuilder = Builder<JobAssignment>(dbTableProvider);
+        public static McmaApiRouteCollection ForJobAssignments<T>(this DefaultRouteCollectionBuilder<JobAssignment> builder)
+            where T : IWorkerInvoker, new()
+            => builder.ForJobAssignments(new T());
 
-            defaultRoutesBuilder.Create(rb =>
-                rb.OnCompleted((requestContext, jobAssignment) =>
-                    workerInvoker.RunAsync(requestContext.WorkerLambdaFunctionName(),
-                        new
-                        {
-                            action = "ProcessJobAssignment",
-                            stageVariables = requestContext.ContextVariables,
-                            jobAssignmentId = jobAssignment.Id
-                        })));
-
-            return defaultRoutesBuilder.Build();
-        }
+        public static McmaApiRouteCollection ForJobAssignments(this DefaultRouteCollectionBuilder<JobAssignment> builder, IWorkerInvoker workerInvoker)
+            =>
+            builder
+                .AddAll()
+                .Route(r => r.Create).Configure(rb =>
+                    rb.OnCompleted((requestContext, jobAssignment) =>
+                        workerInvoker.RunAsync(requestContext.WorkerFunctionName(),
+                            new
+                            {
+                                action = "ProcessJobAssignment",
+                                stageVariables = requestContext.ContextVariables,
+                                jobAssignmentId = jobAssignment.Id
+                            })))
+                .Build();
     }
 }

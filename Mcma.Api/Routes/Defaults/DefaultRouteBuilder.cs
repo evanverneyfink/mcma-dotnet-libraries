@@ -4,7 +4,7 @@ using System.Net.Http;
 
 namespace Mcma.Api.Routes.Defaults
 {
-    public class DefaultRouteBuilder<TResult>
+    public class DefaultRouteBuilder<TResult> : IDefaultRouteBuilder
     {
         internal DefaultRouteBuilder(HttpMethod method, string path, DefaultRouteHandlerBuilder<TResult> defaultHandlerBuilder)
         {
@@ -18,6 +18,8 @@ namespace Mcma.Api.Routes.Defaults
         private string Path { get; }
 
         private DefaultRouteHandlerBuilder<TResult> DefaultHandlerBuilder { get; }
+
+        McmaApiRoute IDefaultRouteBuilder.Build() => Build();
 
         internal McmaApiRoute Build() => new McmaApiRoute(Method, Path, Handler ?? DefaultHandlerBuilder.Create());
 

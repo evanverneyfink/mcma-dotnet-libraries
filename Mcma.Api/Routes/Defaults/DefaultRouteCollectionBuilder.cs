@@ -4,55 +4,100 @@ using Mcma.Core.Serialization;
 using Mcma.Core;
 using System.Collections.Generic;
 using System.Net.Http;
+using System.Linq.Expressions;
+using System.Reflection;
 
 namespace Mcma.Api.Routes.Defaults
 {
     public class DefaultRouteCollectionBuilder<TResource> where TResource : McmaResource
     {
+        public class RouteBuilderAction<TResult>
+        {
+            public RouteBuilderAction(
+                DefaultRouteCollectionBuilder<TResource> builder,
+                DefaultRouteBuilderCollectionRoutes<TResource> routes,
+                DefaultRouteBuilder<TResult> routeBuilder)
+            {
+                Builder = builder;
+                Routes = routes;
+                RouteBuilder = routeBuilder;
+            }
+
+            private DefaultRouteCollectionBuilder<TResource> Builder { get; }
+
+            private DefaultRouteBuilderCollectionRoutes<TResource> Routes { get; }
+
+            private DefaultRouteBuilder<TResult> RouteBuilder { get; }
+
+            public DefaultRouteCollectionBuilder<TResource> Configure(Action<DefaultRouteBuilder<TResult>> configure)
+            {
+                if (!Routes.Included.Contains(RouteBuilder))
+                    Routes.Included.Add(RouteBuilder);
+                configure(RouteBuilder);
+                return Builder;
+            }
+
+            public DefaultRouteCollectionBuilder<TResource> Add()
+            {
+                if (!Routes.Included.Contains(RouteBuilder))
+                    Routes.Included.Add(RouteBuilder);
+                return Builder;
+            }
+
+            public DefaultRouteCollectionBuilder<TResource> Remove()
+            {
+                if (Routes.Included.Contains(RouteBuilder))
+                    Routes.Included.Remove(RouteBuilder);
+                return Builder;
+            }
+        }
+
         internal DefaultRouteCollectionBuilder(IDbTableProvider<TResource> dbTableProvider, string root)
         {
+            DbTableProvider = dbTableProvider;
+
             if (!root.StartsWith("/"))
                 root = "/" + root;
 
-            Routes = new DefaultRouteBuilderOptions<TResource>
+            Root = root;
+            
+            Routes = new DefaultRouteBuilderCollectionRoutes<TResource>
             {
-                Query = QueryRouteBuilder(dbTableProvider, root),
-                Create = CreateRouteBuilder(dbTableProvider, root),
-                Get = GetRouteBuilder(dbTableProvider, root),
-                Update = UpdateRouteBuilder(dbTableProvider, root),
-                Delete = DeleteRouteBuilder(dbTableProvider, root)
+                Query = DefaultQueryBuilder(dbTableProvider, root),
+                Create = DefaultCreateBuilder(dbTableProvider, root),
+                Get = DefaultGetBuilder(dbTableProvider, root),
+                Update = DefaultUpdateBuilder(dbTableProvider, root),
+                Delete = DefaultDeleteBuilder(dbTableProvider, root)
             };
         }
 
-        private DefaultRouteBuilderOptions<TResource> Routes { get; }
+        private IDbTableProvider<TResource> DbTableProvider { get; }
+
+        private string Root { get; }
+
+        private DefaultRouteBuilderCollectionRoutes<TResource> Routes { get; }
 
         public McmaApiRouteCollection Build()
-            => new McmaApiRouteCollection(Routes.Query.Build(), Routes.Create.Build(), Routes.Get.Build(), Routes.Update.Build(), Routes.Delete.Build());
+            => new McmaApiRouteCollection(Routes.Included.Select(rb => rb.Build()));
 
-        public DefaultRouteCollectionBuilder<TResource> Query(Action<DefaultRouteBuilder<IEnumerable<TResource>>> configure)
-            => ConfigureRoute(Routes.Query, configure);
-
-        public DefaultRouteCollectionBuilder<TResource> Create(Action<DefaultRouteBuilder<TResource>> configure)
-            => ConfigureRoute(Routes.Create, configure);
-
-        public DefaultRouteCollectionBuilder<TResource> Get(Action<DefaultRouteBuilder<TResource>> configure)
-            => ConfigureRoute(Routes.Get, configure);
-
-        public DefaultRouteCollectionBuilder<TResource> Update(Action<DefaultRouteBuilder<TResource>> configure)
-            => ConfigureRoute(Routes.Update, configure);
-
-        public DefaultRouteCollectionBuilder<TResource> Delete(Action<DefaultRouteBuilder<TResource>> configure)
-            => ConfigureRoute(Routes.Delete, configure);
-
-        private DefaultRouteCollectionBuilder<TResource> ConfigureRoute<TResult>(
-            DefaultRouteBuilder<TResult> routeBuilder,
-            Action<DefaultRouteBuilder<TResult>> configure)
+        public DefaultRouteCollectionBuilder<TResource> AddAll()
         {
-            configure(routeBuilder);
+            Routes.AddAll();
             return this;
         }
 
-        private static DefaultRouteBuilder<IEnumerable<TResource>> QueryRouteBuilder(IDbTableProvider<TResource> dbTableProvider, string root) => 
+        public RouteBuilderAction<TResult> Route<TResult>(
+            Expression<Func<DefaultRouteBuilderCollectionRoutes<TResource>, DefaultRouteBuilder<TResult>>> selectRoute)
+        {
+            if (!(selectRoute.Body is MemberExpression memberExpression) ||
+                !(memberExpression.Member is PropertyInfo propertyInfo) ||
+                !typeof(DefaultRouteBuilder<TResult>).IsAssignableFrom(propertyInfo.PropertyType))
+                throw new Exception($"Invalid route selection expression: {selectRoute}");
+
+            return new RouteBuilderAction<TResult>(this, Routes, (DefaultRouteBuilder<TResult>)propertyInfo.GetValue(Routes));
+        }
+
+        private static DefaultRouteBuilder<IEnumerable<TResource>> DefaultQueryBuilder(IDbTableProvider<TResource> dbTableProvider, string root) => 
             new DefaultRouteBuilder<IEnumerable<TResource>>(
                 HttpMethod.Get,
                 root, 
@@ -82,7 +127,7 @@ namespace Mcma.Api.Routes.Defaults
                             requestContext.ResourceIfFound(resources);
                         }));
 
-        private static DefaultRouteBuilder<TResource> CreateRouteBuilder(IDbTableProvider<TResource> dbTableProvider, string root) => 
+        private static DefaultRouteBuilder<TResource> DefaultCreateBuilder(IDbTableProvider<TResource> dbTableProvider, string root) => 
             new DefaultRouteBuilder<TResource>(
                 HttpMethod.Post,
                 root,
@@ -111,7 +156,7 @@ namespace Mcma.Api.Routes.Defaults
                         requestContext.ResourceCreated(resource);
                     }));
 
-        private static DefaultRouteBuilder<TResource> GetRouteBuilder(IDbTableProvider<TResource> dbTableProvider, string root) =>
+        private static DefaultRouteBuilder<TResource> DefaultGetBuilder(IDbTableProvider<TResource> dbTableProvider, string root) =>
             new DefaultRouteBuilder<TResource>(
                 HttpMethod.Get,
                 root,
@@ -133,7 +178,7 @@ namespace Mcma.Api.Routes.Defaults
                             requestContext.ResourceIfFound(resource);
                         }));
 
-        private static DefaultRouteBuilder<TResource> UpdateRouteBuilder(IDbTableProvider<TResource> dbTableProvider, string root) =>
+        private static DefaultRouteBuilder<TResource> DefaultUpdateBuilder(IDbTableProvider<TResource> dbTableProvider, string root) =>
             new DefaultRouteBuilder<TResource>(
                 HttpMethod.Put,
                 root + "/{id}",
@@ -161,7 +206,7 @@ namespace Mcma.Api.Routes.Defaults
                             requestContext.Response.JsonBody = resource.ToMcmaJson();
                         }));
 
-        private static DefaultRouteBuilder<TResource> DeleteRouteBuilder(IDbTableProvider<TResource> dbTableProvider, string root) =>
+        private static DefaultRouteBuilder<TResource> DefaultDeleteBuilder(IDbTableProvider<TResource> dbTableProvider, string root) =>
             new DefaultRouteBuilder<TResource>(
                 HttpMethod.Delete,
                 root + "/{id}",

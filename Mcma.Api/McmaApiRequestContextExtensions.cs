@@ -12,8 +12,8 @@ namespace Mcma.Api
         public static string TableName(this McmaApiRequestContext requestContext)
             => requestContext.ContextVariables.TryGetValue(nameof(TableName), out var tableName) ? tableName : string.Empty;
 
-        public static string WorkerLambdaFunctionName(this McmaApiRequestContext requestContext)
-            => requestContext.ContextVariables.TryGetValue(nameof(WorkerLambdaFunctionName), out var workerLambdaFunctionName)
+        public static string WorkerFunctionName(this McmaApiRequestContext requestContext)
+            => requestContext.ContextVariables.TryGetValue(nameof(WorkerFunctionName), out var workerLambdaFunctionName)
                 ? workerLambdaFunctionName
                 : string.Empty;
 

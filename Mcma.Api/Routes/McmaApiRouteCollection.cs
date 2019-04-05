@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using System.Collections;
 using System.Linq;
+using System.Net.Http;
 
 namespace Mcma.Api.Routes
 {
@@ -19,6 +20,12 @@ namespace Mcma.Api.Routes
         }
 
         private List<McmaApiRoute> Routes { get; }
+
+        public McmaApiRouteCollection AddRoute(HttpMethod method, string path, Func<McmaApiRequestContext, Task> handler)
+        {
+            Routes.Add(new McmaApiRoute(method, path, handler));
+            return this;
+        }
 
         public McmaApiRouteCollection AddRoute(string method, string path, Func<McmaApiRequestContext, Task> handler)
         {
