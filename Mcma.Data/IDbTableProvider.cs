@@ -1,7 +1,7 @@
-using Mcma.Core;
+﻿using Mcma.Core;
 using Mcma.Data;
 
-namespace Mcma.Api
+namespace Mcma.Data
 {
     public interface IDbTableProvider<T> where T : McmaResource
     {

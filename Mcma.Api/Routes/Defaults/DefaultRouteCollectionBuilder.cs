@@ -6,6 +6,8 @@ using System.Collections.Generic;
 using System.Net.Http;
 using System.Linq.Expressions;
 using System.Reflection;
+using Mcma.Data;
+using Mcma.Core.Logging;
 
 namespace Mcma.Api.Routes.Defaults
 {
@@ -109,14 +111,15 @@ namespace Mcma.Api.Routes.Defaults
                             if (onStarted != null)
                                 await onStarted.Invoke(requestContext);
 
+                            var filterExpr =
+                                requestContext.Request.QueryStringParameters.Any()
+                                    ? Filters.InMemoryTextValues<TResource>(requestContext.Request.QueryStringParameters)
+                                    : null;
+
                             // get all resources from the table, applying in-memory filtering using the query string (if any)
                             var resources =
-                                await dbTableProvider
-                                    .Table(requestContext.TableName())
-                                    .QueryAsync(
-                                        requestContext.Request.QueryStringParameters.Any()
-                                            ? Filters.InMemoryTextValues<TResource>(requestContext.Request.QueryStringParameters)
-                                            : null);
+                                (await dbTableProvider.Table(requestContext.TableName()).QueryAsync(filterExpr))
+                                    .ToList();
 
                             // invoke the completion handler with the results
                             if (onCompleted != null)
@@ -135,44 +138,47 @@ namespace Mcma.Api.Routes.Defaults
                     (onStarted, onCompleted) =>
                         async requestContext =>
                         {
-                        // invoke the start handler, if any
-                        if (onStarted != null)
-                            await onStarted.Invoke(requestContext);
+                            // invoke the start handler, if any
+                            if (onStarted != null)
+                                await onStarted.Invoke(requestContext);
 
-                        // ensure the body is set
-                        if (requestContext.IsBadRequestDueToMissingBody(out TResource resource))
-                            return;
+                            // ensure the body is set
+                            if (requestContext.IsBadRequestDueToMissingBody(out TResource resource))
+                                return;
 
-                        // initialize the new resource with an ID
-                        resource.OnCreate($"{requestContext.PublicUrl()}/{root}/{Guid.NewGuid()}");
+                            // initialize the new resource with an ID
+                            resource.OnCreate($"{requestContext.PublicUrl()}{root}/{Guid.NewGuid()}");
 
-                        // put the new object into the table
-                        await dbTableProvider.Table(requestContext.TableName()).PutAsync(resource.Id, resource);
+                            // put the new object into the table
+                            await dbTableProvider.Table(requestContext.TableName()).PutAsync(resource.Id, resource);
 
-                        // invoke the completion handler (if any) with the newly-created resource
-                        onCompleted?.Invoke(requestContext, resource);
+                            // invoke the completion handler (if any) with the newly-created resource
+                            if (onCompleted != null)
+                                await onCompleted.Invoke(requestContext, resource);
 
-                        // return a Created status with the id of the resource
-                        requestContext.ResourceCreated(resource);
-                    }));
+                            // return a Created status with the id of the resource
+                            requestContext.ResourceCreated(resource);
+                        }));
 
         private static DefaultRouteBuilder<TResource> DefaultGetBuilder(IDbTableProvider<TResource> dbTableProvider, string root) =>
             new DefaultRouteBuilder<TResource>(
                 HttpMethod.Get,
-                root,
+                root + "/{id}",
                 new DefaultRouteHandlerBuilder<TResource>(
                     (onStarted, onCompleted) =>
                         async requestContext =>
                         {
                             // invoke the start handler, if any
-                            onStarted?.Invoke(requestContext);
+                            if (onStarted != null)
+                                await onStarted.Invoke(requestContext);
 
                             // get the resource from the database
                             var resource =
                                 await dbTableProvider.Table(requestContext.TableName()).GetAsync(requestContext.PublicUrl() + requestContext.Request.Path);
 
                             // invoke the completion handler, if any
-                            onCompleted?.Invoke(requestContext, resource);
+                            if (onCompleted != null)
+                                await onCompleted.Invoke(requestContext, resource);
 
                             // return the resource as json, if found; otherwise, this will return a 404
                             requestContext.ResourceIfFound(resource);
@@ -187,7 +193,8 @@ namespace Mcma.Api.Routes.Defaults
                         async requestContext =>
                         {
                             // invoke the start handler, if any
-                            onStarted?.Invoke(requestContext);
+                            if (onStarted != null)
+                                await onStarted.Invoke(requestContext);
 
                             // ensure the body is set
                             if (requestContext.IsBadRequestDueToMissingBody(out TResource resource))
@@ -200,7 +207,8 @@ namespace Mcma.Api.Routes.Defaults
                             await dbTableProvider.Table(requestContext.TableName()).PutAsync(resource.Id, resource);
 
                             // invoke the completion handler, if any
-                            onCompleted?.Invoke(requestContext, resource);
+                            if (onCompleted != null)
+                                await onCompleted.Invoke(requestContext, resource);
 
                             // return the new or updated resource as json
                             requestContext.Response.JsonBody = resource.ToMcmaJson();
@@ -215,7 +223,8 @@ namespace Mcma.Api.Routes.Defaults
                         async requestContext =>
                         {
                             // invoke the start handler, if any
-                            onStarted?.Invoke(requestContext);
+                            if (onStarted != null)
+                                await onStarted.Invoke(requestContext);
 
                             // get the table for the resource
                             var table = dbTableProvider.Table(requestContext.TableName());
@@ -234,7 +243,8 @@ namespace Mcma.Api.Routes.Defaults
                             await table.DeleteAsync(id);
 
                             // invoke the completion handler, if any
-                            onCompleted?.Invoke(requestContext, resource);
+                            if (onCompleted != null)
+                                await onCompleted.Invoke(requestContext, resource);
                         }));
     }
 }

@@ -3,14 +3,14 @@ using Mcma.Core.Logging;
 using System.Net;
 using Mcma.Core;
 using Mcma.Core.Utility;
+using Mcma.Data;
 
 namespace Mcma.Api.Routes.Defaults
 {
     public static class DefaultRoutes
     {
         public static DefaultRouteCollectionBuilder<T> Builder<T>(IDbTableProvider<T> dbTableProvider, string root = null) where T : McmaResource
-            => new DefaultRouteCollectionBuilder<T>(dbTableProvider, root ?? typeof(T).Name.CamelCaseToKebabCase());
-            
+            => new DefaultRouteCollectionBuilder<T>(dbTableProvider, root ?? typeof(T).Name.CamelCaseToKebabCase().PluralizeKebabCase());
 
         public static McmaApiRouteCollection ForJobAssignments<T>(this DefaultRouteCollectionBuilder<JobAssignment> builder)
             where T : IWorkerInvoker, new()
@@ -25,9 +25,12 @@ namespace Mcma.Api.Routes.Defaults
                         workerInvoker.RunAsync(requestContext.WorkerFunctionName(),
                             new
                             {
-                                action = "ProcessJobAssignment",
-                                stageVariables = requestContext.ContextVariables,
-                                jobAssignmentId = jobAssignment.Id
+                                operationName = "ProcessJobAssignment",
+                                contextVariables = requestContext.ContextVariables,
+                                input = new
+                                {
+                                    jobAssignmentId = jobAssignment.Id
+                                }
                             })))
                 .Build();
     }

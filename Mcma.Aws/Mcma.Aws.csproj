@@ -13,6 +13,7 @@
     <ProjectReference Include="..\Mcma.Core\Mcma.Core.csproj" />
     <ProjectReference Include="..\Mcma.Api\Mcma.Api.csproj" />
     <ProjectReference Include="..\Mcma.Data\Mcma.Data.csproj" />
+    <ProjectReference Include="..\Mcma.Worker\Mcma.Worker.csproj" />
   </ItemGroup>
 
   <ItemGroup>

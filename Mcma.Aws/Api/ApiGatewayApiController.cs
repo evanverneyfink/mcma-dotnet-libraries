@@ -30,7 +30,7 @@ namespace Mcma.Aws.Api
 
         public async Task<APIGatewayProxyResponse> HandleRequestAsync(APIGatewayProxyRequest @event, ILambdaContext context)
         {
-            var requestContext = new ApiGatewayRequestContext(
+            var requestContext = new McmaApiRequestContext(
                 new McmaApiRequest
                 {
                     Path = @event.Path,

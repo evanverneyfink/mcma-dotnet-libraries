@@ -7,8 +7,8 @@ namespace Mcma.Aws.Api
 {
     public static class AwsDefaultRoutes
     {
-        public static DefaultRouteCollectionBuilder<T> WithDynamoDb<T>() where T : McmaResource
-            => DefaultRoutes.Builder<T>(new DynamoDbTableProvider<T>());
+        public static DefaultRouteCollectionBuilder<T> WithDynamoDb<T>(string root = null) where T : McmaResource
+            => DefaultRoutes.Builder<T>(new DynamoDbTableProvider<T>(), root);
 
         public static ApiGatewayApiController ToController(this McmaApiRouteCollection routes)
             => new ApiGatewayApiController(routes);

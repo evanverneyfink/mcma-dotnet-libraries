@@ -77,7 +77,7 @@ namespace Mcma.Api
                                 methodMatched = true;
 
                                 request.PathVariables = pathVariables;
-
+                                
                                 await route.Handler(requestContext);
                                 break;
                             }
@@ -138,7 +138,14 @@ namespace Mcma.Api
                         response.Headers = GetDefaultResponseHeaders();
                         response.JsonBody = new McmaApiError(response.StatusCode, response.StatusMessage, request.Path).ToMcmaJson();
                     }
+                    else
+                    {
+                        response.StatusCode = (int)HttpStatusCode.OK;
+                    }
                 }
+            
+                if (response.JsonBody != null)
+                    response.Body = response.JsonBody.ToString();
             }
             catch (Exception ex)
             {
@@ -148,9 +155,6 @@ namespace Mcma.Api
                 response.Headers = GetDefaultResponseHeaders();
                 response.JsonBody = new McmaApiError(response.StatusCode, ex.ToString(), request.Path).ToMcmaJson();
             }
-
-            if (response.JsonBody != null)
-                response.Body = response.JsonBody.ToString();
 
             return response;
         }
