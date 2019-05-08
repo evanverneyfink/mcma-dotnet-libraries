@@ -8,7 +8,7 @@ namespace Mcma.Core
     public class EnvironmentVariableProvider : IContextVariableProvider
     {
         public IReadOnlyDictionary<string, string> ContextVariables { get; } =
-            Environment.GetEnvironmentVariables().Keys.OfType<string>().ToDictionary(k => Environment.GetEnvironmentVariable(k));
+            Environment.GetEnvironmentVariables().Keys.OfType<string>().Distinct().ToDictionary(k => k, k => Environment.GetEnvironmentVariable(k));
 
         public static EnvironmentVariableProvider Instance { get; } = new EnvironmentVariableProvider();
     }
